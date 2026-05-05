@@ -155,7 +155,7 @@ const MATRICES = {
   "Platinum-Palladium Matrix": {
     batch: 40, asteroid: "SLAG", volume: 1,
     outputs: [
-      { name: "Silica Grains",     qty: 10 },
+      { name: "Silica Grains",     qty: 16 },
       { name: "Iron-Rich Nodules", qty: 30 },
       { name: "Palladium",         qty:  8 },
     ]
@@ -164,7 +164,7 @@ const MATRICES = {
     batch: 40, asteroid: "COMET", volume: 1,
     outputs: [
       { name: "Hydrocarbon Residue", qty:  20 },
-      { name: "Water Ice",           qty: 200 },
+      { name: "Water Ice",           qty: 300 },
     ]
   },
   "Feldspar Crystals": {
