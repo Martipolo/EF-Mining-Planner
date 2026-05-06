@@ -127,6 +127,12 @@
 injectNav('construction');
 
 window.machineChoices = {};
+window.ingotEnabled   = false;
+
+function toggleIngot() {
+  window.ingotEnabled = !window.ingotEnabled;
+  calcCraft();
+}
 
 function setMachine(compName, machine) {
   window.machineChoices[compName] = machine;
@@ -211,7 +217,7 @@ async function refreshStock() {
   }
 }
 
-const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)' };
+const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8' };
 
 function calcCraft() {
   const itemKey = document.getElementById('craftItem').value;
@@ -349,38 +355,88 @@ function calcCraft() {
     || `<div class="mat-row"><div class="mat-name" style="color:var(--green)">${t('construction.nothing_mine')}</div></div>`;
 
   // ── Plan of mining ───────────────────────────────────────────
-  if (Object.keys(r.byAsteroid).length === 0) {
-    document.getElementById('craftTrips').innerHTML = `
-      <div class="trip-card" style="border-left-color:var(--green)">
+  const INGOT_COL      = AST_COLORS['Ingot'];
+  const byAstNormal    = Object.entries(r.byAsteroid).filter(([ast]) => ast !== 'Ingot');
+  const ingotMats      = r.byAsteroid['Ingot'];
+  const ingotBtnStyle  = `font-size:9px;letter-spacing:2px;padding:3px 8px;cursor:pointer;font-family:'Share Tech Mono',monospace;background:transparent;border:1px solid`;
+
+  function astTripCard(ast, mats) {
+    const lines = mats.map(m => {
+      const perTrip = Math.floor(soute / m.volume);
+      const trips   = perTrip > 0 ? Math.ceil(m.toMine / perTrip) : '∞';
+      return { ...m, perTrip, trips };
+    });
+    const maxTrips = Math.max(...lines.map(l => typeof l.trips === 'number' ? l.trips : 0));
+    const detail   = lines.map(l =>
+      `${esc(l.name)} : ${l.toMine.toLocaleString()} to mine (${l.perTrip.toLocaleString()}/trip → ${l.trips} trip${l.trips>1?'s':''})`
+    ).join('<br>');
+    const col = AST_COLORS[ast] || 'var(--gold)';
+    return `
+      <div class="trip-card" style="border-left-color:${col}">
+        <div class="trip-asteroid" style="color:${col}">${esc(ast)}</div>
+        <div class="trip-resource">${lines.map(l => esc(l.name)).join(', ')}</div>
+        <div class="trip-count">${maxTrips}</div>
+        <div class="trip-label">${maxTrips>1 ? t('construction.trips') : t('construction.trip')} ${t('construction.of_mining')}</div>
+        <div class="trip-detail">${detail}</div>
+      </div>`;
+  }
+
+  let tripsHtml = byAstNormal.length === 0 && !ingotMats
+    ? `<div class="trip-card" style="border-left-color:var(--green)">
         <div class="trip-asteroid">${t('construction.complete')}</div>
         <div class="trip-resource">${t('construction.everything_stock')}</div>
         <div class="trip-count">0</div>
         <div class="trip-label">${t('construction.trip')} needed</div>
+       </div>`
+    : byAstNormal.map(([ast, mats]) => astTripCard(ast, mats)).join('');
+
+  // Ingot card — toujours affichée
+  if (window.ingotEnabled && ingotMats) {
+    const iLines = ingotMats.map(m => {
+      const perTrip = Math.floor(soute / m.volume);
+      const trips   = perTrip > 0 ? Math.ceil(m.toMine / perTrip) : '∞';
+      return { ...m, perTrip, trips };
+    });
+    const iMax    = Math.max(...iLines.map(l => typeof l.trips === 'number' ? l.trips : 0));
+    const iDetail = iLines.map(l =>
+      `${esc(l.name)} : ${l.toMine.toLocaleString()} to mine (${l.perTrip.toLocaleString()}/trip → ${l.trips} trip${l.trips>1?'s':''})`
+    ).join('<br>');
+    tripsHtml += `
+      <div class="trip-card" style="border-left-color:${INGOT_COL}">
+        <div class="trip-asteroid" style="color:${INGOT_COL}">INGOT</div>
+        <div class="trip-resource">${iLines.map(l => esc(l.name)).join(', ')}</div>
+        <div class="trip-count">${iMax}</div>
+        <div class="trip-label">${iMax>1 ? t('construction.trips') : t('construction.trip')} ${t('construction.of_mining')}</div>
+        <div class="trip-detail">${iDetail}</div>
+        <div style="margin-top:8px">
+          <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
+        </div>
       </div>`;
-    return;
+  } else if (window.ingotEnabled) {
+    tripsHtml += `
+      <div class="trip-card" style="border-left-color:${INGOT_COL}">
+        <div class="trip-asteroid" style="color:${INGOT_COL}">INGOT</div>
+        <div class="trip-resource">Iridosmine Nodules</div>
+        <div class="trip-count">0</div>
+        <div class="trip-label">${t('construction.trip')} needed</div>
+        <div style="margin-top:8px">
+          <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
+        </div>
+      </div>`;
+  } else {
+    tripsHtml += `
+      <div class="trip-card" style="border-left-color:var(--border)">
+        <div class="trip-asteroid" style="color:var(--text3)">INGOT</div>
+        <div class="trip-resource" style="color:var(--text3)">Iridosmine Nodules — optional</div>
+        <div class="trip-count" style="color:var(--text3)">—</div>
+        <div class="trip-label" style="color:var(--text3)">disabled</div>
+        <div style="margin-top:8px">
+          <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--text2);color:var(--text2)">ENABLE INGOT</button>
+        </div>
+      </div>`;
   }
 
-  document.getElementById('craftTrips').innerHTML =
-    Object.entries(r.byAsteroid).map(([ast, mats]) => {
-      const lines = mats.map(m => {
-        const perTrip = Math.floor(soute / m.volume);
-        const trips   = perTrip > 0 ? Math.ceil(m.toMine / perTrip) : '∞';
-        return { ...m, perTrip, trips };
-      });
-      const maxTrips = Math.max(...lines.map(l => typeof l.trips === 'number' ? l.trips : 0));
-      const detail   = lines.map(l =>
-        `${esc(l.name)} : ${l.toMine.toLocaleString()} to mine (${l.perTrip.toLocaleString()}/trip → ${l.trips} trip${l.trips>1?'s':''})`
-      ).join('<br>');
-      const col = AST_COLORS[ast] || 'var(--gold)';
-      return `
-        <div class="trip-card" style="border-left-color:${col}">
-          <div class="trip-asteroid" style="color:${col}">${esc(ast)}</div>
-          <div class="trip-resource">${lines.map(l => esc(l.name)).join(', ')}</div>
-          <div class="trip-count">${maxTrips}</div>
-          <div class="trip-label">${maxTrips>1 ? t('construction.trips') : t('construction.trip')} ${t('construction.of_mining')}</div>
-          <div class="trip-detail">${detail}</div>
-        </div>`;
-    }).join('');
+  document.getElementById('craftTrips').innerHTML = tripsHtml;
 }
 </script>
   <footer>

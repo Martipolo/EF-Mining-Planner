@@ -174,6 +174,12 @@ const MATRICES = {
       { name: "Silica Grains",       qty: 30 },
     ]
   },
+  "Iridosmine Nodules": {
+    batch: 40, asteroid: "Ingot", volume: 1,
+    outputs: [
+      { name: "Iron-Rich Nodules", qty: 40 },
+    ]
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -236,9 +242,10 @@ function _computeAllMatrices(result, stock) {
   }
 
   // ── Trier : sources uniques d'abord ─────────────────────────────
+  const enabledMatrices = Object.values(MATRICES).filter(m => m.asteroid !== 'Ingot' || window.ingotEnabled);
   const order = Object.keys(remaining).sort((a, b) => {
-    const optA = Object.values(MATRICES).filter(m => m.outputs.some(o => o.name === a)).length;
-    const optB = Object.values(MATRICES).filter(m => m.outputs.some(o => o.name === b)).length;
+    const optA = enabledMatrices.filter(m => m.outputs.some(o => o.name === a)).length;
+    const optB = enabledMatrices.filter(m => m.outputs.some(o => o.name === b)).length;
     return optA - optB;
   });
 
@@ -249,6 +256,7 @@ function _computeAllMatrices(result, stock) {
 
     let best = null;
     for (const [mxName, mxRec] of Object.entries(MATRICES)) {
+      if (mxRec.asteroid === 'Ingot' && !window.ingotEnabled) continue;
       const out = mxRec.outputs.find(o => o.name === matName);
       if (!out) continue;
       const batches = Math.ceil(needed / out.qty);
