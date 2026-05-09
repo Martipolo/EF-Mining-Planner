@@ -390,7 +390,10 @@ function calcCraft() {
        </div>`
     : byAstNormal.map(([ast, mats]) => astTripCard(ast, mats)).join('');
 
-  // Ingot card — toujours affichée
+  // Ingot card — affichée seulement si IRN est demandé
+  const ingotRelevant = (r.intermediaires["Iron-Rich Nodules"]?.manque || 0) > 0
+                     || (r.matieres["Iron-Rich Nodules"]?.manque      || 0) > 0;
+
   if (window.ingotEnabled && ingotMats) {
     const iLines = ingotMats.map(m => {
       const perTrip = Math.floor(soute / m.volume);
@@ -423,7 +426,7 @@ function calcCraft() {
           <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
         </div>
       </div>`;
-  } else {
+  } else if (ingotRelevant) {
     tripsHtml += `
       <div class="trip-card" style="border-left-color:var(--border)">
         <div class="trip-asteroid" style="color:var(--text3)">INGOT</div>
