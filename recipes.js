@@ -32,6 +32,25 @@ const RECIPES = {
     ]
   },
 
+  batched_reinforced_alloys: {
+    name: "Batched Reinforced Alloys", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Reinforced Alloys", qty: 10 },
+    ]
+  },
+  batched_carbon_weave: {
+    name: "Batched Carbon Weave", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Carbon Weave", qty: 10 },
+    ]
+  },
+  batched_thermal_composites: {
+    name: "Batched Thermal Composites", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Thermal Composites", qty: 10 },
+    ]
+  },
+
   reinforced_alloys: {
     name: "Reinforced Alloys", batch: 14, machine: "Mini Printer",
     isSelfCraft: true,
