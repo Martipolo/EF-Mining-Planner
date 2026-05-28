@@ -3,8 +3,8 @@
 // FLUX COMPLET (5 étapes) :
 //
 // ÉTAPE 1 : Miner des MATRICES BRUTES dans les astéroïdes
-//   SLAG  → Platinum-Palladium Matrix (40u) → 10 Silica Grains + 30 Iron-Rich Nodules + 8 Palladium
-//   COMET → Hydrated Sulfide Matrix   (40u) → 20 Hydrocarbon Residue + 200 Water Ice
+//   SLAG  → Platinum-Palladium Matrix (40u) → 16 Silica Grains + 30 Iron-Rich Nodules + 8 Palladium
+//   COMET → Hydrated Sulfide Matrix   (40u) → 20 Hydrocarbon Residue + 300 Water Ice
 //   CHAR  → Feldspar Crystals         (40u) → 10 Hydrocarbon Residue + 30 Silica Grains
 //
 // ÉTAPE 2 : Raffiner les INTERMÉDIAIRES → donne des MATIÈRES BRUTES
