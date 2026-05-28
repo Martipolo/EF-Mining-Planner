@@ -408,7 +408,12 @@ function _computeAllMatrices(result, stock) {
       const out = mxRec.outputs.find(o => o.name === matName);
       if (!out) continue;
       const batches = Math.ceil(needed / out.qty);
-      if (!best || batches < best.batches) best = { mxName, batches, rec: mxRec, out };
+      // Strict win on fewer batches; on ties, prefer Ingot when the user
+      // has explicitly enabled it (otherwise the "ENABLE INGOT" toggle
+      // would no-op whenever SLAG matches Iridosmine batch-for-batch).
+      const isIngot = mxRec.asteroid === 'Ingot';
+      const tieFavoursIngot = best && batches === best.batches && isIngot && best.rec.asteroid !== 'Ingot';
+      if (!best || batches < best.batches || tieFavoursIngot) best = { mxName, batches, rec: mxRec, out };
     }
     if (!best) continue;
 
