@@ -39,12 +39,13 @@
             <option value="carbon_weave">Carbon Weave</option>
             <option value="thermal_composites">Thermal Composites</option>
           </optgroup>
-          <optgroup label="Frames &amp; Kernels">
+          <optgroup label="Sub-products">
             <option value="nomad_program_frame">Nomad Program Frame</option>
             <option value="archangel_protocol_frame">Archangel Protocol Frame</option>
             <option value="apocalypse_protocol_frame">Apocalypse Protocol Frame</option>
             <option value="still_kernel">Still Kernel</option>
             <option value="echo_chamber">Echo Chamber</option>
+            <option value="still_knot">Still Knot</option>
           </optgroup>
         </select>
       </div>
@@ -81,17 +82,6 @@
           <span data-i18n="construction.step4.col.item">Item</span><span style="text-align:right" data-i18n="construction.step4.col.produce">To produce</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
         </div>
         <div id="craftFinal"></div>
-      </div>
-    </div>
-
-    <!-- Sous-produits : Frames · Kernels · Batched -->
-    <div class="tier-block" id="subproductsBlock" style="display:none">
-      <div class="tier-title"><span data-i18n="construction.subproducts.title">SUB-PRODUCTS —</span> <span data-i18n="construction.subproducts.span">FRAMES · KERNELS · BATCHED</span></div>
-      <div class="panel" style="padding:14px">
-        <div class="tbl-head" style="grid-template-columns:1fr 1fr 110px">
-          <span data-i18n="construction.subproducts.col.item">Sub-product</span><span style="text-align:right" data-i18n="construction.subproducts.col.craft">To craft → using</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
-        </div>
-        <div id="craftSubproducts"></div>
       </div>
     </div>
 
@@ -267,7 +257,7 @@ async function refreshStock() {
   }
 }
 
-const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8' };
+const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8', Glint:'#4dd0e1', 'Rough Rift':'#a78bfa' };
 
 function calcCraft() {
   const itemKey = document.getElementById('craftItem').value;
@@ -334,30 +324,6 @@ function calcCraft() {
     </div>`;
   }
 
-  // ── Sous-produits : Frames · Kernels · Batched ───────────────
-  const subEntries = Object.entries(r.subproducts || {});
-  document.getElementById('subproductsBlock').style.display = subEntries.length ? '' : 'none';
-  document.getElementById('craftSubproducts').innerHTML =
-    subEntries.map(([name, d]) => {
-      const inputsDetail = d.batches > 0 && d.rec
-        ? d.rec.inputs.map(inp =>
-            `<span style="color:var(--gold2);font-weight:bold">${(inp.qty * d.batches).toLocaleString()}</span> × ${esc(inp.name)}`
-          ).join(' &nbsp;+&nbsp; ')
-        : '';
-      return `
-        <div class="mat-row" style="grid-template-columns:1fr 1fr 110px;align-items:start;padding:10px 14px">
-          <div class="mat-name">${esc(name)}${hubBadge(d.machine)}</div>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2">
-            ${d.batches > 0
-              ? `<span style="color:var(--gold2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${t('construction.craft_units', {n: d.toCraft.toLocaleString()})}</span>
-                 <span style="color:var(--text3);font-size:10px"> (${d.batches} ${d.batches>1 ? t('construction.batches') : t('construction.batch')}) ${t('construction.using')}</span>
-                 <div style="color:var(--text2);margin-top:2px;font-size:10px">${inputsDetail}</div>`
-              : `<span style="color:var(--green);font-size:13px">${t('construction.stock_ok')}</span>`}
-          </div>
-          <div class="mat-qty ${cls(d.inStock, d.needed)}">${stk(d.inStock)}</div>
-        </div>`;
-    }).join('');
-
   // ── Inputs manuels (items sans recette) ──────────────────────
   const unkEntries = Object.entries(r.unknowns || {});
   document.getElementById('unknownsBlock').style.display = unkEntries.length ? '' : 'none';
@@ -369,27 +335,32 @@ function calcCraft() {
         <div class="mat-qty ${cls(d.inStock, d.needed)}">${stk(d.inStock)}</div>
       </div>`).join('');
 
-  // ── Étape 3 : Components ─────────────────────────────────────
-  const compEntries = Object.entries(r.composants);
+  // ── Étape 3 : Composants & sous-produits ─────────────────────
+  // Sous-produits (Frames, Kernels, Batched) en premier — niveau supérieur,
+  // crafté avant les composants imprimables.
+  const craftRows = [
+    ...Object.entries(r.subproducts || {}).map(([n, d]) => [n, d, true]),
+    ...Object.entries(r.composants     ).map(([n, d]) => [n, d, false]),
+  ];
   document.getElementById('craftComponents').closest('.tier-block').style.display =
-    compEntries.length ? '' : 'none';
+    craftRows.length ? '' : 'none';
   document.getElementById('craftComponents').innerHTML =
-    compEntries.map(([name, d]) => {
+    craftRows.map(([name, d, isSub]) => {
       const inputsDetail = d.batches > 0 && d.rec
         ? d.rec.inputs.map(inp =>
             `<span style="color:var(--gold2);font-weight:bold">${(inp.qty * d.batches).toLocaleString()}</span> × ${esc(inp.name)}`
           ).join(' &nbsp;+&nbsp; ')
         : '';
+      const machineUI = isSub
+        ? hubBadge(d.machine)
+        : `<div style="display:flex;gap:4px;margin-top:6px">${machineBtns(name, d.machine || DEFAULT_MACHINE)}</div>`;
       return `
         <div class="mat-row" style="grid-template-columns:1fr 1fr 110px;align-items:start;padding:10px 14px">
-          <div class="mat-name">
-            ${esc(name)}
-            <div style="display:flex;gap:4px;margin-top:6px">${machineBtns(name, d.machine || DEFAULT_MACHINE)}</div>
-          </div>
+          <div class="mat-name">${esc(name)}${machineUI}</div>
           <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2">
             ${d.batches > 0
-              ? `<span style="color:var(--gold2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${t('construction.craft_units', {n: d.toCraft})}</span>
-                 <span style="color:var(--text3);font-size:10px"> ${t('construction.using')}</span>
+              ? `<span style="color:var(--gold2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${t('construction.craft_units', {n: d.toCraft.toLocaleString()})}</span>
+                 <span style="color:var(--text3);font-size:10px"> (${d.batches} ${d.batches>1 ? t('construction.batches') : t('construction.batch')}) ${t('construction.using')}</span>
                  <div style="color:var(--text2);margin-top:2px;font-size:10px">${inputsDetail}</div>`
               : `<span style="color:var(--green);font-size:13px">${t('construction.stock_ok')}</span>`}
           </div>

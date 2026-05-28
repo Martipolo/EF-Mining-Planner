@@ -166,6 +166,13 @@ const RECIPES = {
       { name: "Feldspar Crystal Shards", qty: 105 },
     ]
   },
+  still_knot: {
+    name: "Still Knot", batch: 1, machine: "Mini Printer",
+    inputs: [
+      { name: "Salt",       qty: 5 },
+      { name: "Feral Echo", qty: 5 },
+    ]
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -264,14 +271,18 @@ const INTERMEDIAIRES = {
       { name: "Chitinous Organics",    qty: 1 },
     ]
   },
+  "Rough Old Crude Matter": {
+    batch: 30, machine: "Refinery",
+    outputs: [
+      { name: "Salt",      qty: 16 },
+      { name: "Sophrogon", qty: 28 },
+    ]
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────
 // ÉTAPE 1 — Matrices brutes (minées dans les astéroïdes)
 // ─────────────────────────────────────────────────────────────────
-// TODO: matrix source for "Aromatic Carbon Veins" not yet supplied —
-// once the asteroid type + batch + volume are known, add an entry here
-// so Step 1 (mining trips) covers the Still Kernel / Aromatic chain.
 const MATRICES = {
   "Platinum-Palladium Matrix": {
     batch: 40, asteroid: "SLAG", volume: 1,
@@ -299,6 +310,22 @@ const MATRICES = {
     batch: 40, asteroid: "Ingot", volume: 1,
     outputs: [
       { name: "Iron-Rich Nodules", qty: 40 },
+    ]
+  },
+  // Aromatic Carbon Veins is both the mined item (from Glint asteroid)
+  // and the refinery input (see INTERMEDIAIRES above) — 1:1 here.
+  "Aromatic Carbon Veins": {
+    batch: 40, asteroid: "Glint", volume: 1,
+    outputs: [
+      { name: "Aromatic Carbon Veins", qty: 40 },
+    ]
+  },
+  // Rough Old Crude Matter is harvested from a Rough Rift and feeds
+  // the Refinery (see INTERMEDIAIRES above) — 1:1 here.
+  "Rough Old Crude Matter": {
+    batch: 50, asteroid: "Rough Rift", volume: 1,
+    outputs: [
+      { name: "Rough Old Crude Matter", qty: 50 },
     ]
   },
 };
