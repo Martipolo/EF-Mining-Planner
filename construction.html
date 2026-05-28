@@ -28,10 +28,23 @@
             <option value="batched_thermal_composites">Batched Thermal Composites</option>
             <option value="rapid_plasma_ammo_1_m">Rapid Plasma Ammo 1 (M)</option>
           </optgroup>
+          <optgroup label="Ships">
+            <option value="wend">Wend</option>
+            <option value="reiver">Reiver</option>
+            <option value="usv">USV</option>
+            <option value="tades">Tades</option>
+          </optgroup>
           <optgroup label="Components">
             <option value="reinforced_alloys">Reinforced Alloys</option>
             <option value="carbon_weave">Carbon Weave</option>
             <option value="thermal_composites">Thermal Composites</option>
+          </optgroup>
+          <optgroup label="Frames &amp; Kernels">
+            <option value="nomad_program_frame">Nomad Program Frame</option>
+            <option value="archangel_protocol_frame">Archangel Protocol Frame</option>
+            <option value="apocalypse_protocol_frame">Apocalypse Protocol Frame</option>
+            <option value="still_kernel">Still Kernel</option>
+            <option value="echo_chamber">Echo Chamber</option>
           </optgroup>
         </select>
       </div>
@@ -68,6 +81,28 @@
           <span data-i18n="construction.step4.col.item">Item</span><span style="text-align:right" data-i18n="construction.step4.col.produce">To produce</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
         </div>
         <div id="craftFinal"></div>
+      </div>
+    </div>
+
+    <!-- Sous-produits : Frames · Kernels · Batched -->
+    <div class="tier-block" id="subproductsBlock" style="display:none">
+      <div class="tier-title"><span data-i18n="construction.subproducts.title">SUB-PRODUCTS —</span> <span data-i18n="construction.subproducts.span">FRAMES · KERNELS · BATCHED</span></div>
+      <div class="panel" style="padding:14px">
+        <div class="tbl-head" style="grid-template-columns:1fr 1fr 110px">
+          <span data-i18n="construction.subproducts.col.item">Sub-product</span><span style="text-align:right" data-i18n="construction.subproducts.col.craft">To craft → using</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
+        </div>
+        <div id="craftSubproducts"></div>
+      </div>
+    </div>
+
+    <!-- Inputs manuels : items sans recette -->
+    <div class="tier-block" id="unknownsBlock" style="display:none">
+      <div class="tier-title"><span data-i18n="construction.unknowns.title">MANUAL INPUTS —</span> <span data-i18n="construction.unknowns.span">USER PROVIDES</span></div>
+      <div class="panel" style="padding:14px">
+        <div class="tbl-head" style="grid-template-columns:1fr 130px 110px">
+          <span data-i18n="construction.unknowns.col.item">Item</span><span style="text-align:right" data-i18n="construction.raw.col.required">Required</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
+        </div>
+        <div id="craftUnknowns"></div>
       </div>
     </div>
 
@@ -154,6 +189,17 @@ function machineBtns(compName, currentMachine) {
              border:1px solid ${active ? 'var(--accent)' : 'var(--border)'};
              color:${active ? 'var(--bg)' : 'var(--text3)'}">${label}</button>`;
   }).join('');
+}
+
+// Static manufacturing-hub badge (ship hub or printer) — read-only,
+// shown next to a recipe's name in Step 4 and the Sub-products tier.
+function hubBadge(machine) {
+  if (!machine) return '';
+  return `<span style="margin-left:8px;font-size:9px;letter-spacing:2px;
+    padding:2px 6px;border:1px solid var(--accent);color:var(--accent);
+    font-family:'Share Tech Mono',monospace;white-space:nowrap">
+    ⬡ ${esc(machine.toUpperCase())}
+  </span>`;
 }
 
 document.addEventListener('langReady', () => {
@@ -278,7 +324,7 @@ function calcCraft() {
     document.getElementById('craftFinal').innerHTML = `
     ${stockNotice}
     <div class="mat-row" style="grid-template-columns:1fr 1fr 110px;align-items:start;padding:10px 14px">
-      <div class="mat-name">${esc(r.final.name)}</div>
+      <div class="mat-name">${esc(r.final.name)}${hubBadge(r.final.machine)}</div>
       <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2">
         <span style="color:var(--gold2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${t('construction.craft_units', {n: r.final.needed})}</span>
         <span style="color:var(--text3);font-size:10px"> (${r.final.batches} ${r.final.batches>1 ? t('construction.batches') : t('construction.batch')}) ${t('construction.using')}</span>
@@ -288,9 +334,47 @@ function calcCraft() {
     </div>`;
   }
 
+  // ── Sous-produits : Frames · Kernels · Batched ───────────────
+  const subEntries = Object.entries(r.subproducts || {});
+  document.getElementById('subproductsBlock').style.display = subEntries.length ? '' : 'none';
+  document.getElementById('craftSubproducts').innerHTML =
+    subEntries.map(([name, d]) => {
+      const inputsDetail = d.batches > 0 && d.rec
+        ? d.rec.inputs.map(inp =>
+            `<span style="color:var(--gold2);font-weight:bold">${(inp.qty * d.batches).toLocaleString()}</span> × ${esc(inp.name)}`
+          ).join(' &nbsp;+&nbsp; ')
+        : '';
+      return `
+        <div class="mat-row" style="grid-template-columns:1fr 1fr 110px;align-items:start;padding:10px 14px">
+          <div class="mat-name">${esc(name)}${hubBadge(d.machine)}</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2">
+            ${d.batches > 0
+              ? `<span style="color:var(--gold2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${t('construction.craft_units', {n: d.toCraft.toLocaleString()})}</span>
+                 <span style="color:var(--text3);font-size:10px"> (${d.batches} ${d.batches>1 ? t('construction.batches') : t('construction.batch')}) ${t('construction.using')}</span>
+                 <div style="color:var(--text2);margin-top:2px;font-size:10px">${inputsDetail}</div>`
+              : `<span style="color:var(--green);font-size:13px">${t('construction.stock_ok')}</span>`}
+          </div>
+          <div class="mat-qty ${cls(d.inStock, d.needed)}">${stk(d.inStock)}</div>
+        </div>`;
+    }).join('');
+
+  // ── Inputs manuels (items sans recette) ──────────────────────
+  const unkEntries = Object.entries(r.unknowns || {});
+  document.getElementById('unknownsBlock').style.display = unkEntries.length ? '' : 'none';
+  document.getElementById('craftUnknowns').innerHTML =
+    unkEntries.map(([name, d]) => `
+      <div class="mat-row" style="grid-template-columns:1fr 130px 110px">
+        <div class="mat-name">${esc(name)}</div>
+        <div class="mat-qty need">${d.needed.toLocaleString()}</div>
+        <div class="mat-qty ${cls(d.inStock, d.needed)}">${stk(d.inStock)}</div>
+      </div>`).join('');
+
   // ── Étape 3 : Components ─────────────────────────────────────
+  const compEntries = Object.entries(r.composants);
+  document.getElementById('craftComponents').closest('.tier-block').style.display =
+    compEntries.length ? '' : 'none';
   document.getElementById('craftComponents').innerHTML =
-    Object.entries(r.composants).map(([name, d]) => {
+    compEntries.map(([name, d]) => {
       const inputsDetail = d.batches > 0 && d.rec
         ? d.rec.inputs.map(inp =>
             `<span style="color:var(--gold2);font-weight:bold">${(inp.qty * d.batches).toLocaleString()}</span> × ${esc(inp.name)}`

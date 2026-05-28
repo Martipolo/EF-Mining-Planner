@@ -104,6 +104,13 @@
   "construction.produced": "produit(s)",
   "construction.batch": "cycle",
   "construction.batches": "cycles",
+  "construction.subproducts.title": "SOUS-PRODUITS —",
+  "construction.subproducts.span": "FRAMES · KERNELS · BATCHED",
+  "construction.subproducts.col.item": "Sous-produit",
+  "construction.subproducts.col.craft": "À crafter → avec",
+  "construction.unknowns.title": "INTRANTS MANUELS —",
+  "construction.unknowns.span": "À FOURNIR",
+  "construction.unknowns.col.item": "Item",
 
   "recipes.title": "Recettes",
   "recipes.subtitle": "RECETTES DE CRAFT /// EVE FRONTIER",
