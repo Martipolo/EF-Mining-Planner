@@ -230,9 +230,6 @@ const COMPOSANTS_BY_MACHINE = {
   },
 };
 
-// Alias Mini Printer pour compatibilité avec recipes.html
-const COMPOSANTS = COMPOSANTS_BY_MACHINE[DEFAULT_MACHINE];
-
 function getComposantRecipe(name, machine) {
   const m = COMPOSANTS_BY_MACHINE[machine] || COMPOSANTS_BY_MACHINE[DEFAULT_MACHINE];
   return (m && m[name]) || COMPOSANTS_BY_MACHINE[DEFAULT_MACHINE][name] || null;
@@ -408,9 +405,18 @@ function _computeAllMatrices(result, stock) {
       const out = mxRec.outputs.find(o => o.name === matName);
       if (!out) continue;
       const batches = Math.ceil(needed / out.qty);
-      // Strict win on fewer batches; on ties, prefer Ingot when the user
-      // has explicitly enabled it (otherwise the "ENABLE INGOT" toggle
-      // would no-op whenever SLAG matches Iridosmine batch-for-batch).
+      // Tie-break: when the user has explicitly toggled "ENABLE INGOT" and
+      // Iridosmine matches the best non-Ingot option batch-for-batch, pick
+      // Iridosmine. Without this, ENABLE INGOT is a no-op for small IRN
+      // needs (≤30) because SLAG iterates first and wins strict <.
+      //
+      // Trade-off: this is a greedy local choice on batch count and ignores
+      // byproduct value. SLAG would also produce Silica Grains + Palladium;
+      // when SG remainder lands in a narrow byproduct-saves-a-batch range
+      // (e.g. SG need 31-46), preferring Iridosmine can add one CHAR batch
+      // (+40 mined). Accepted because (a) the user explicitly opted in, and
+      // (b) the typical SG demand for component recipes vastly exceeds the
+      // 16 SG/batch SLAG byproduct, so the practical impact is minor.
       const isIngot = mxRec.asteroid === 'Ingot';
       const tieFavoursIngot = best && batches === best.batches && isIngot && best.rec.asteroid !== 'Ingot';
       if (!best || batches < best.batches || tieFavoursIngot) best = { mxName, batches, rec: mxRec, out };
@@ -466,16 +472,26 @@ function isRawMaterial(name) {
   return false;
 }
 
+// Plafond de profondeur pour la récursion d'expansion. Données actuelles
+// vont au maximum à ~3 niveaux (Ship → Frame → Echo Chamber). Le garde
+// évite un stack overflow si une recette future devient (mutuellement)
+// auto-référente — on log et on s'arrête au lieu de planter la page.
+const MAX_EXPANSION_DEPTH = 12;
+
 // Walker récursif. Classe chaque input dans composants / subproducts /
 // matieres / unknowns et descend dans les sous-recettes avec le delta
 // de batches restant à produire (stock-aware, accumule sur les doublons).
-function _expandInputs(parentBatches, inputs, machineChoices, stock, result) {
+function _expandInputs(parentBatches, inputs, machineChoices, stock, result, depth = 0) {
   for (const inp of inputs) {
-    _classifyAndAdd(inp.name, inp.qty * parentBatches, machineChoices, stock, result);
+    _classifyAndAdd(inp.name, inp.qty * parentBatches, machineChoices, stock, result, depth);
   }
 }
 
-function _classifyAndAdd(name, qty, machineChoices, stock, result) {
+function _classifyAndAdd(name, qty, machineChoices, stock, result, depth = 0) {
+  if (depth >= MAX_EXPANSION_DEPTH) {
+    console.warn(`[recipes] expansion depth cap (${MAX_EXPANSION_DEPTH}) hit at "${name}" — possible recipe cycle, stopping descent.`);
+    return;
+  }
   // 1. Composant Mini/Field Printer (Reinforced Alloys, Carbon Weave, Thermal Composites)
   const machine = machineChoices[name] || DEFAULT_MACHINE;
   const compRec = getComposantRecipe(name, machine);
@@ -491,14 +507,14 @@ function _classifyAndAdd(name, qty, machineChoices, stock, result) {
       prev.batches = newBatches;
       prev.toCraft = newBatches * compRec.batch;
       if (delta > 0) for (const sub of compRec.inputs)
-        _classifyAndAdd(sub.name, sub.qty * delta, machineChoices, stock, result);
+        _classifyAndAdd(sub.name, sub.qty * delta, machineChoices, stock, result, depth + 1);
     } else {
       const inStock = stock[name] || 0;
       const manque  = Math.max(0, qty - inStock);
       const batches = Math.ceil(manque / compRec.batch);
       result.composants[name] = { needed: qty, inStock, manque, batches, toCraft: batches * compRec.batch, rec: compRec, machine };
       if (batches > 0) for (const sub of compRec.inputs)
-        _classifyAndAdd(sub.name, sub.qty * batches, machineChoices, stock, result);
+        _classifyAndAdd(sub.name, sub.qty * batches, machineChoices, stock, result, depth + 1);
     }
     return;
   }
@@ -516,13 +532,13 @@ function _classifyAndAdd(name, qty, machineChoices, stock, result) {
       prev.manque  = newManque;
       prev.batches = newBatches;
       prev.toCraft = newBatches * subRec.batch;
-      if (delta > 0) _expandInputs(delta, subRec.inputs, machineChoices, stock, result);
+      if (delta > 0) _expandInputs(delta, subRec.inputs, machineChoices, stock, result, depth + 1);
     } else {
       const inStock = stock[name] || 0;
       const manque  = Math.max(0, qty - inStock);
       const batches = Math.ceil(manque / subRec.batch);
       result.subproducts[name] = { needed: qty, inStock, manque, batches, toCraft: batches * subRec.batch, rec: subRec, machine: subRec.machine };
-      if (batches > 0) _expandInputs(batches, subRec.inputs, machineChoices, stock, result);
+      if (batches > 0) _expandInputs(batches, subRec.inputs, machineChoices, stock, result, depth + 1);
     }
     return;
   }
@@ -540,7 +556,7 @@ function _classifyAndAdd(name, qty, machineChoices, stock, result) {
     return;
   }
 
-  // 4. Inconnu — pas de recette, l'utilisateur fournit (Still Knot, Brine, Fossilized Exotronics, …)
+  // 4. Inconnu — pas de recette, l'utilisateur fournit (Brine, Feral Echo, Fossilized Exotronics, Chitinous Organics, …)
   const prev = result.unknowns[name];
   if (prev) {
     prev.needed += qty;
