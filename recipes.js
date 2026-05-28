@@ -317,10 +317,10 @@ const MATRICES = {
       { name: "Aromatic Carbon Veins", qty: 40 },
     ]
   },
-  // Rough Old Crude Matter is harvested from a Rough Rift and feeds
-  // the Refinery (see INTERMEDIAIRES above) — 1:1 here.
+  // Rough Old Crude Matter is harvested from an Old Fissure (Rift) and
+  // feeds the Refinery (see INTERMEDIAIRES above) — 1:1 here.
   "Rough Old Crude Matter": {
-    batch: 50, asteroid: "Rough Rift", volume: 1,
+    batch: 50, asteroid: "Old Fissure (Rift)", volume: 1,
     outputs: [
       { name: "Rough Old Crude Matter", qty: 50 },
     ]
