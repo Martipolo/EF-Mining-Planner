@@ -51,6 +51,17 @@ const RECIPES = {
     ]
   },
 
+  rapid_plasma_ammo_1_m: {
+    name: "Rapid Plasma Ammo 1 (M)", batch: 100, machine: "Printer",
+    inputs: [
+      { name: "Nickel-Iron Veins",       qty:  900 },
+      { name: "Reinforced Alloys",        qty:    4 },
+      { name: "Troilite Sulfide Grains",  qty: 1080 },
+      { name: "Hydrocarbon Residue",      qty:   43 },
+      { name: "Palladium",                qty:  630 },
+    ]
+  },
+
   reinforced_alloys: {
     name: "Reinforced Alloys", batch: 14, machine: "Mini Printer",
     isSelfCraft: true,
@@ -343,20 +354,25 @@ function computeCraft(recipeKey, wantedQty, machineChoices = {}) {
   const finalInStock = stock[recipe.name] || 0;
   result.final = { name: recipe.name, needed: finalQty, batches: finalBatches, inStock: finalInStock };
 
-  // ── ÉTAPE 3 : composants à crafter (avec choix machine par composant)
+  // ── ÉTAPE 3 : composants craftables / matières directes ─────────
+  const matNeeds = {};
   for (const inp of recipe.inputs) {
     const needed  = inp.qty * finalBatches;
     const inStock = stock[inp.name] || 0;
     const manque  = Math.max(0, needed - inStock);
     const machine = machineChoices[inp.name] || DEFAULT_MACHINE;
     const rec     = getComposantRecipe(inp.name, machine);
-    const batches = rec ? Math.ceil(manque / rec.batch) : 0;
-    const toCraft = batches * (rec?.batch || 1);
-    result.composants[inp.name] = { needed, inStock, manque, batches, toCraft, rec, machine };
+    if (rec) {
+      const batches = Math.ceil(manque / rec.batch);
+      const toCraft = batches * rec.batch;
+      result.composants[inp.name] = { needed, inStock, manque, batches, toCraft, rec, machine };
+    } else {
+      // Matière brute directe (pas de recette composant) → bypass Step 3
+      matNeeds[inp.name] = (matNeeds[inp.name] || 0) + needed;
+    }
   }
 
-  // ── Matières brutes nécessaires (inputs des composants à crafter)
-  const matNeeds = {};
+  // ── Matières brutes depuis les composants craftés
   for (const [, comp] of Object.entries(result.composants)) {
     if (comp.batches === 0 || !comp.rec) continue;
     for (const inp of comp.rec.inputs) {
