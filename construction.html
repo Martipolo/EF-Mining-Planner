@@ -457,8 +457,13 @@ function calcCraft() {
   const ingotRelevant = (r.intermediaires["Iron-Rich Nodules"]?.manque || 0) > 0
                      || (r.matieres["Iron-Rich Nodules"]?.manque      || 0) > 0;
 
-  // Si Ingot activé mais algo n'en a pas besoin → désactiver automatiquement
-  if (window.ingotEnabled && !ingotMats) window.ingotEnabled = false;
+  // Reset the toggle only when the current craft needs no Iron-Rich Nodules at
+  // all — Ingot is merely an alternative IRN source, so it's irrelevant then.
+  // Do NOT reset just because Iridosmine wasn't picked this pass: when IRN is
+  // fully covered by the SLAG (Platinum-Palladium Matrix) by-product, the toggle
+  // must stay ON and responsive — otherwise ENABLE INGOT silently flips back and
+  // looks broken (it never produces a visible state change on click).
+  if (window.ingotEnabled && !ingotRelevant) window.ingotEnabled = false;
 
   if (window.ingotEnabled && ingotMats) {
     const iLines = ingotMats.map(m => {
@@ -477,6 +482,22 @@ function calcCraft() {
         <div class="trip-count">${iMax}</div>
         <div class="trip-label">${iMax>1 ? t('construction.trips') : t('construction.trip')} ${t('construction.of_mining')}</div>
         <div class="trip-detail">${iDetail}</div>
+        <div style="margin-top:8px">
+          <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
+        </div>
+      </div>`;
+  } else if (window.ingotEnabled) {
+    // Ingot is ON but the planner routed no Iron-Rich Nodules through Iridosmine:
+    // the SLAG (Platinum-Palladium Matrix) you already mine yields enough IRN as
+    // a by-product, so an extra Iridosmine run wouldn't cut any trips. Show why,
+    // and keep a working DISABLE button so the click is never a silent no-op.
+    tripsHtml += `
+      <div class="trip-card" style="border-left-color:${INGOT_COL}">
+        <div class="trip-asteroid" style="color:${INGOT_COL}">INGOT</div>
+        <div class="trip-resource">Iridosmine Nodules</div>
+        <div class="trip-count">0</div>
+        <div class="trip-label">not needed — IRN covered</div>
+        <div class="trip-detail">Iron-Rich Nodules already covered by the Platinum-Palladium Matrix (SLAG) by-product — mining Iridosmine wouldn't reduce trips.</div>
         <div style="margin-top:8px">
           <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
         </div>
