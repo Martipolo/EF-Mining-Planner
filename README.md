@@ -9,7 +9,7 @@
 ## Features
 
 ### ◈ Character Registry
-Browse all **12,000+ EVE Frontier characters** registered on the Sui testnet blockchain.
+Browse all **14,000+ EVE Frontier characters** registered on the Sui testnet blockchain.
 - Search by name or character ID
 - Click any character to see their wallet address, tribe, and tenant
 - Data refreshed daily via GitHub Actions
@@ -22,15 +22,19 @@ Connect as your character and view your **Smart Storage Units** in real time.
 
 ### ⚙ Construction Planner
 Plan your crafting sessions with full **multi-tier calculation**.
-- Choose a final product (Building Foam) or a component directly (Reinforced Alloys, Carbon Weave, Thermal Composites)
+- Choose a final product, ship, ammo, or component directly
+- Supported recipes: **Building Foam**, **Batched components**, **Rapid Plasma Ammo 1 (M)**, **ships** (Wend, Reiver, USV, Tades), and self-craft components
 - Enter desired quantity and cargo capacity
 - **Per-component machine selector** — switch between Mini Printer and Field Printer for each component independently
-- Stock-aware notices: existing stock shown in context without blocking your craft plan
+- **Optional Ingot asteroid** — toggle Iridosmine Nodules as an alternative IRN source
+- **Recursive sub-product expansion** — ships with Frames, Kernels, Echo Chambers are fully decomposed into their mining plan automatically
+- Stock-aware: existing stock shown in context without blocking your craft plan
 - Automatically calculates:
+  - Sub-products to craft (Frames, Kernels, etc.)
   - Components to craft with ingredient details per machine
   - Raw materials needed
-  - Intermediates to refine
-  - Matrices to mine per asteroid type (SLAG / COMET / CHAR)
+  - Intermediates to refine (Refinery)
+  - Matrices to mine per asteroid type (SLAG / COMET / CHAR / Glint / Old Fissure)
   - **Number of mining trips** based on your cargo hold
 - Stock from your SSU is taken into account automatically
 
@@ -85,16 +89,22 @@ The **SSU Dashboard** queries the blockchain live (no caching between sessions),
 
 ## Adding New Recipes
 
-All recipes are in `recipes.js`. The structure follows 4 tiers:
+All recipes are in `recipes.js`. The calculator uses recursive expansion — any input that matches a `RECIPES` entry is automatically decomposed into its own sub-products, components, and raw materials.
 
 ```js
-// Tier 4 — Final product
+// Final product or ship — inputs can be components, sub-products, or raw materials
 RECIPES['my_item'] = {
   name: "My Item", batch: 10, machine: "Printer S",
   inputs: [ { name: "Reinforced Alloys", qty: 65 } ]
 };
 
-// Tier 3 — Component, with per-machine recipes
+// Sub-product (Frame, Kernel, etc.) — added to RECIPES, expanded recursively
+RECIPES['my_frame'] = {
+  name: "My Frame", batch: 1, machine: "Printer",
+  inputs: [ { name: "Still Knot", qty: 1 } ]
+};
+
+// Component with per-machine recipes
 COMPOSANTS_BY_MACHINE["Mini Printer"]["My Component"] = {
   batch: 14,
   inputs: [ { name: "Nickel-Iron Veins", qty: 1050 } ]
@@ -104,13 +114,13 @@ COMPOSANTS_BY_MACHINE["Field Printer"]["My Component"] = {
   inputs: [ { name: "Silica Grains", qty: 105 } ]
 };
 
-// Tier 2 — Intermediate (refined → produces raw materials)
+// Intermediate (refined → produces raw materials)
 INTERMEDIAIRES["My Intermediate"] = {
   batch: 20, machine: "Refinery",
   outputs: [ { name: "Silicon Dust", qty: 150 } ]  // ← outputs, not inputs!
 };
 
-// Tier 1 — Raw matrix (mined from asteroids → produces intermediates)
+// Raw matrix (mined from asteroids → produces intermediates)
 MATRICES["My Matrix"] = {
   batch: 40, asteroid: "SLAG", volume: 1,
   outputs: [ { name: "My Intermediate", qty: 30 } ]
@@ -165,6 +175,8 @@ Pull requests are welcome! Most useful contributions:
 
 ## 🗺️ Roadmap
 - [x] Machine selector per component (Mini Printer vs Field Printer)
+- [x] Optional Ingot asteroid toggle
+- [x] Ships with recursive sub-product expansion (Wend, Reiver, USV, Tades)
 - [ ] Compact mode for second monitor
 - [ ] Simplified mobile view
 
