@@ -28,6 +28,12 @@
             <option value="batched_thermal_composites">Batched Thermal Composites</option>
             <option value="rapid_plasma_ammo_1_m">Rapid Plasma Ammo 1 (M)</option>
           </optgroup>
+          <optgroup label="Ships">
+            <option value="wend">Wend</option>
+            <option value="reiver">Reiver</option>
+            <option value="usv">USV</option>
+            <option value="tades">Tades</option>
+          </optgroup>
           <optgroup label="Components">
             <option value="reinforced_alloys">Reinforced Alloys</option>
             <option value="carbon_weave">Carbon Weave</option>
@@ -68,6 +74,17 @@
           <span data-i18n="construction.step4.col.item">Item</span><span style="text-align:right" data-i18n="construction.step4.col.produce">To produce</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
         </div>
         <div id="craftFinal"></div>
+      </div>
+    </div>
+
+    <!-- Sub-products -->
+    <div class="tier-block" id="subproductsTier">
+      <div class="tier-title"><span data-i18n="construction.subproducts.title">SUB-PRODUCTS —</span> <span data-i18n="construction.subproducts.span">TO CRAFT</span></div>
+      <div class="panel" style="padding:14px">
+        <div class="tbl-head" style="grid-template-columns:1fr 1fr 110px">
+          <span data-i18n="construction.subproducts.col.item">Sub-product</span><span style="text-align:right" data-i18n="construction.subproducts.col.needed">Needed → to craft</span><span style="text-align:right" data-i18n="construction.step4.col.stock">Stock</span>
+        </div>
+        <div id="craftSubproducts"></div>
       </div>
     </div>
 
@@ -221,7 +238,7 @@ async function refreshStock() {
   }
 }
 
-const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8' };
+const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8', Glint:'#4dd0e1', 'Old Fissure (Rift)':'#a78bfa' };
 
 function calcCraft() {
   const itemKey = document.getElementById('craftItem').value;
@@ -287,6 +304,36 @@ function calcCraft() {
       <div class="mat-qty ${r.final.inStock > 0 ? 'ok' : ''}">${stk(r.final.inStock)}</div>
     </div>`;
   }
+
+  // ── Sub-products ─────────────────────────────────────────────
+  const subproductsTier = document.getElementById('subproductsTier');
+  const subEntries = Object.entries(r.subproducts || {});
+  subproductsTier.style.display = subEntries.length === 0 ? 'none' : '';
+  document.getElementById('craftSubproducts').innerHTML =
+    subEntries.map(([name, d]) => {
+      const inputsDetail = d.batches > 0 && d.rec
+        ? d.rec.inputs.map(inp =>
+            `<span style="color:var(--gold2);font-weight:bold">${(inp.qty * d.batches).toLocaleString()}</span> × ${esc(inp.name)}`
+          ).join(' &nbsp;+&nbsp; ')
+        : '';
+      const machineBadge = `<span style="font-size:8px;letter-spacing:1px;padding:2px 6px;
+        font-family:'Share Tech Mono',monospace;border:1px solid var(--border);color:var(--text3)">${esc(d.machine || '')}</span>`;
+      return `
+        <div class="mat-row" style="grid-template-columns:1fr 1fr 110px;align-items:start;padding:10px 14px">
+          <div class="mat-name">
+            ${esc(name)}
+            <div style="margin-top:6px">${machineBadge}</div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:2">
+            ${d.batches > 0
+              ? `<span style="color:var(--gold2);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${t('construction.craft_units', {n: d.toCraft})}</span>
+                 <span style="color:var(--text3);font-size:10px"> ${t('construction.using')}</span>
+                 <div style="color:var(--text2);margin-top:2px;font-size:10px">${inputsDetail}</div>`
+              : `<span style="color:var(--green);font-size:13px">${t('construction.stock_ok')}</span>`}
+          </div>
+          <div class="mat-qty ${cls(d.inStock, d.needed)}">${stk(d.inStock)}</div>
+        </div>`;
+    }).join('');
 
   // ── Étape 3 : Components ─────────────────────────────────────
   document.getElementById('craftComponents').innerHTML =

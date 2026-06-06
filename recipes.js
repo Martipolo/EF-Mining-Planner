@@ -62,6 +62,90 @@ const RECIPES = {
     ]
   },
 
+  // ── Ships ────────────────────────────────────────────────────────
+  wend: {
+    name: "Wend", batch: 1, machine: "Mini Berth",
+    inputs: [
+      { name: "Nomad Program Frame",  qty:  1 },
+      { name: "Reinforced Alloys",    qty: 34 },
+      { name: "Carbon Weave",         qty: 17 },
+      { name: "Thermal Composites",   qty: 17 },
+    ]
+  },
+  reiver: {
+    name: "Reiver", batch: 1, machine: "Mini Berth",
+    inputs: [
+      { name: "Nomad Program Frame",  qty:  2 },
+      { name: "Reinforced Alloys",    qty: 78 },
+      { name: "Carbon Weave",         qty: 33 },
+      { name: "Thermal Composites",   qty: 33 },
+    ]
+  },
+  usv: {
+    name: "USV", batch: 1, machine: "Berth",
+    inputs: [
+      { name: "Archangel Protocol Frame",   qty:  1 },
+      { name: "Batched Reinforced Alloys",  qty: 56 },
+      { name: "Batched Carbon Weave",       qty: 28 },
+      { name: "Batched Thermal Composites", qty: 28 },
+    ]
+  },
+  tades: {
+    name: "Tades", batch: 1, machine: "Berth",
+    inputs: [
+      { name: "Apocalypse Protocol Frame",  qty:   1 },
+      { name: "Batched Reinforced Alloys",  qty: 211 },
+      { name: "Batched Carbon Weave",       qty: 123 },
+      { name: "Batched Thermal Composites", qty: 123 },
+      { name: "Still Kernel",               qty:   7 },
+    ]
+  },
+
+  // ── Sous-produits ships ──────────────────────────────────────────
+  nomad_program_frame: {
+    name: "Nomad Program Frame", batch: 1, machine: "Mini Printer",
+    inputs: [ { name: "Fossilized Exotronics", qty: 5 } ]
+  },
+  archangel_protocol_frame: {
+    name: "Archangel Protocol Frame", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Still Knot",   qty:  1 },
+      { name: "Echo Chamber", qty:  1 },
+      { name: "Kerogen Tar",  qty: 38 },
+    ]
+  },
+  apocalypse_protocol_frame: {
+    name: "Apocalypse Protocol Frame", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Still Knot",   qty:   1 },
+      { name: "Echo Chamber", qty:   1 },
+      { name: "Kerogen Tar",  qty: 128 },
+    ]
+  },
+  still_kernel: {
+    name: "Still Kernel", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Brine",                 qty: 50 },
+      { name: "Aromatic Carbon Weave", qty:  1 },
+    ]
+  },
+  echo_chamber: {
+    name: "Echo Chamber", batch: 1, machine: "Printer",
+    inputs: [
+      { name: "Nickel-Iron Veins",       qty: 120 },
+      { name: "Troilite Sulfide Grains", qty:  45 },
+      { name: "Feldspar Crystal Shards", qty: 105 },
+    ]
+  },
+  still_knot: {
+    name: "Still Knot", batch: 1, machine: "Mini Printer",
+    inputs: [
+      { name: "Salt",       qty: 5 },
+      { name: "Feral Echo", qty: 5 },
+    ]
+  },
+
+  // ── Self-craft components ────────────────────────────────────────
   reinforced_alloys: {
     name: "Reinforced Alloys", batch: 14, machine: "Mini Printer",
     isSelfCraft: true,
@@ -176,6 +260,21 @@ const INTERMEDIAIRES = {
       { name: "Silicon Dust",            qty: 150 },
     ]
   },
+  "Aromatic Carbon Veins": {
+    batch: 100, machine: "Refinery",
+    outputs: [
+      { name: "Aromatic Carbon Weave", qty: 4 },
+      { name: "Kerogen Tar",           qty: 8 },
+      { name: "Chitinous Organics",    qty: 1 },
+    ]
+  },
+  "Rough Old Crude Matter": {
+    batch: 30, machine: "Refinery",
+    outputs: [
+      { name: "Salt",      qty: 16 },
+      { name: "Sophrogon", qty: 28 },
+    ]
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -209,6 +308,14 @@ const MATRICES = {
     outputs: [
       { name: "Iron-Rich Nodules", qty: 40 },
     ]
+  },
+  "Aromatic Carbon Veins": {
+    batch: 40, asteroid: "Glint", volume: 1,
+    outputs: [ { name: "Aromatic Carbon Veins", qty: 40 } ]
+  },
+  "Rough Old Crude Matter": {
+    batch: 50, asteroid: "Old Fissure (Rift)", volume: 1,
+    outputs: [ { name: "Rough Old Crude Matter", qty: 50 } ]
   },
 };
 
@@ -320,13 +427,72 @@ function _computeAllMatrices(result, stock) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// EXPANSION RÉCURSIVE — helpers
+// ─────────────────────────────────────────────────────────────────
+const MAX_EXPANSION_DEPTH = 12;
+
+function findRecipeByName(name) {
+  for (const rec of Object.values(RECIPES)) {
+    if (rec.name === name) return rec;
+  }
+  return null;
+}
+
+function expandInput(name, qtyNeeded, machineChoices, stock, result, depth) {
+  if (depth >= MAX_EXPANSION_DEPTH) {
+    console.warn(`[recipes] depth cap reached on "${name}" — possible recipe cycle`);
+    return;
+  }
+
+  // ── 1. COMPOSANT (machine-specific) ───────────────────────────
+  const machine = machineChoices[name] || DEFAULT_MACHINE;
+  const compRec = getComposantRecipe(name, machine);
+  if (compRec) {
+    const prev      = result.composants[name];
+    const needed    = (prev?.needed || 0) + qtyNeeded;
+    const inStock   = stock[name] || 0;
+    const manque    = Math.max(0, needed - inStock);
+    const batches   = Math.ceil(manque / compRec.batch);
+    const prevBatch = prev?.batches || 0;
+    const delta     = batches - prevBatch;
+    result.composants[name] = { needed, inStock, manque, batches, toCraft: batches * compRec.batch, rec: compRec, machine };
+    if (delta > 0) for (const inp of compRec.inputs)
+      expandInput(inp.name, inp.qty * delta, machineChoices, stock, result, depth + 1);
+    return;
+  }
+
+  // ── 2. SOUS-PRODUIT (Frame, Kernel, Echo Chamber, Batched X…) ─
+  const subRec = findRecipeByName(name);
+  if (subRec && !subRec.isSelfCraft) {
+    const prev      = result.subproducts[name];
+    const needed    = (prev?.needed || 0) + qtyNeeded;
+    const inStock   = stock[name] || 0;
+    const manque    = Math.max(0, needed - inStock);
+    const batches   = Math.ceil(manque / subRec.batch);
+    const prevBatch = prev?.batches || 0;
+    const delta     = batches - prevBatch;
+    result.subproducts[name] = { needed, inStock, manque, batches, toCraft: batches * subRec.batch, rec: subRec, machine: subRec.machine };
+    if (delta > 0) for (const inp of subRec.inputs)
+      expandInput(inp.name, inp.qty * delta, machineChoices, stock, result, depth + 1);
+    return;
+  }
+
+  // ── 3. MATIÈRE BRUTE ──────────────────────────────────────────
+  const prev    = result.matieres[name];
+  const needed  = (prev?.needed || 0) + qtyNeeded;
+  const inStock = stock[name] || 0;
+  result.matieres[name] = { needed, inStock, manque: Math.max(0, needed - inStock) };
+}
+
 function computeCraft(recipeKey, wantedQty, machineChoices = {}) {
   const recipe = RECIPES[recipeKey];
   if (!recipe) return null;
   const stock = window.ssuStock || {};
 
   const result = {
-    final: {}, composants: {}, matieres: {}, intermediaires: {}, matrices: {}, byAsteroid: {},
+    final: {}, subproducts: {}, composants: {}, matieres: {},
+    intermediaires: {}, matrices: {}, byAsteroid: {},
   };
 
   // ── CAS isSelfCraft : le produit est lui-même le composant final ─
@@ -348,46 +514,16 @@ function computeCraft(recipeKey, wantedQty, machineChoices = {}) {
     return result;
   }
 
-  // ── CAS NORMAL : produit final avec composants T2 ───────────────
+  // ── CAS NORMAL : expansion récursive ────────────────────────────
   const finalBatches = Math.ceil(wantedQty / recipe.batch);
   const finalQty     = finalBatches * recipe.batch;
   const finalInStock = stock[recipe.name] || 0;
   result.final = { name: recipe.name, needed: finalQty, batches: finalBatches, inStock: finalInStock };
 
-  // ── ÉTAPE 3 : composants craftables / matières directes ─────────
-  const matNeeds = {};
-  for (const inp of recipe.inputs) {
-    const needed  = inp.qty * finalBatches;
-    const inStock = stock[inp.name] || 0;
-    const manque  = Math.max(0, needed - inStock);
-    const machine = machineChoices[inp.name] || DEFAULT_MACHINE;
-    const rec     = getComposantRecipe(inp.name, machine);
-    if (rec) {
-      const batches = Math.ceil(manque / rec.batch);
-      const toCraft = batches * rec.batch;
-      result.composants[inp.name] = { needed, inStock, manque, batches, toCraft, rec, machine };
-    } else {
-      // Matière brute directe (pas de recette composant) → bypass Step 3
-      matNeeds[inp.name] = (matNeeds[inp.name] || 0) + needed;
-    }
-  }
+  for (const inp of recipe.inputs)
+    expandInput(inp.name, inp.qty * finalBatches, machineChoices, stock, result, 0);
 
-  // ── Matières brutes depuis les composants craftés
-  for (const [, comp] of Object.entries(result.composants)) {
-    if (comp.batches === 0 || !comp.rec) continue;
-    for (const inp of comp.rec.inputs) {
-      matNeeds[inp.name] = (matNeeds[inp.name] || 0) + inp.qty * comp.batches;
-    }
-  }
-  for (const [name, needed] of Object.entries(matNeeds)) {
-    const inStock = stock[name] || 0;
-    const manque  = Math.max(0, needed - inStock);
-    result.matieres[name] = { needed, inStock, manque };
-  }
-
-  // ── ÉTAPES 2 & 1 : intermédiaires + matrices ────────────────────
   _computeIntermediaires(result, stock);
   _computeAllMatrices(result, stock);
-
   return result;
 }
