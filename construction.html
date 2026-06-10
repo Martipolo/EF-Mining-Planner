@@ -147,11 +147,17 @@
 <script>
 injectNav('construction');
 
-window.machineChoices = {};
-window.ingotEnabled   = false;
+window.machineChoices  = {};
+window.ingotEnabled    = false;
+window.dewdropEnabled  = false;
 
 function toggleIngot() {
   window.ingotEnabled = !window.ingotEnabled;
+  calcCraft();
+}
+
+function toggleDewdrop() {
+  window.dewdropEnabled = !window.dewdropEnabled;
   calcCraft();
 }
 
@@ -238,7 +244,7 @@ async function refreshStock() {
   }
 }
 
-const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8', Glint:'#4dd0e1', 'Old Fissure (Rift)':'#a78bfa' };
+const AST_COLORS = { SLAG:'var(--accent)', COMET:'var(--blue)', CHAR:'var(--gold)', Ingot:'#9ab4c8', Dewdrop:'#b3e5fc', Glint:'#4dd0e1', 'Old Fissure (Rift)':'#a78bfa' };
 
 function calcCraft() {
   const itemKey = document.getElementById('craftItem').value;
@@ -411,9 +417,11 @@ function calcCraft() {
 
   // ── Plan of mining ───────────────────────────────────────────
   const INGOT_COL      = AST_COLORS['Ingot'];
-  const byAstNormal    = Object.entries(r.byAsteroid).filter(([ast]) => ast !== 'Ingot');
+  const DEWDROP_COL    = AST_COLORS['Dewdrop'];
+  const byAstNormal    = Object.entries(r.byAsteroid).filter(([ast]) => ast !== 'Ingot' && ast !== 'Dewdrop');
   const ingotMats      = r.byAsteroid['Ingot'];
-  const ingotBtnStyle  = `font-size:9px;letter-spacing:2px;padding:3px 8px;cursor:pointer;font-family:'Share Tech Mono',monospace;background:transparent;border:1px solid`;
+  const dewdropMats    = r.byAsteroid['Dewdrop'];
+  const toggleBtnStyle = `font-size:9px;letter-spacing:2px;padding:3px 8px;cursor:pointer;font-family:'Share Tech Mono',monospace;background:transparent;border:1px solid`;
 
   function astTripCard(ast, mats) {
     const lines = mats.map(m => {
@@ -436,7 +444,7 @@ function calcCraft() {
       </div>`;
   }
 
-  let tripsHtml = byAstNormal.length === 0 && !ingotMats
+  let tripsHtml = byAstNormal.length === 0 && !ingotMats && !dewdropMats
     ? `<div class="trip-card" style="border-left-color:var(--green)">
         <div class="trip-asteroid">${t('construction.complete')}</div>
         <div class="trip-resource">${t('construction.everything_stock')}</div>
@@ -445,11 +453,9 @@ function calcCraft() {
        </div>`
     : byAstNormal.map(([ast, mats]) => astTripCard(ast, mats)).join('');
 
-  // Ingot card — affichée seulement si IRN est demandé
+  // ── Ingot card ───────────────────────────────────────────────
   const ingotRelevant = (r.intermediaires["Iron-Rich Nodules"]?.manque || 0) > 0
                      || (r.matieres["Iron-Rich Nodules"]?.manque      || 0) > 0;
-
-  // Si Ingot activé mais algo n'en a pas besoin → désactiver automatiquement
   if (window.ingotEnabled && !ingotMats) window.ingotEnabled = false;
 
   if (window.ingotEnabled && ingotMats) {
@@ -470,7 +476,7 @@ function calcCraft() {
         <div class="trip-label">${iMax>1 ? t('construction.trips') : t('construction.trip')} ${t('construction.of_mining')}</div>
         <div class="trip-detail">${iDetail}</div>
         <div style="margin-top:8px">
-          <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
+          <button onclick="toggleIngot()" style="${toggleBtnStyle} var(--border);color:var(--text3)">DISABLE INGOT</button>
         </div>
       </div>`;
   } else if (ingotRelevant) {
@@ -481,7 +487,45 @@ function calcCraft() {
         <div class="trip-count" style="color:var(--text3)">—</div>
         <div class="trip-label" style="color:var(--text3)">disabled</div>
         <div style="margin-top:8px">
-          <button onclick="toggleIngot()" style="${ingotBtnStyle} var(--text2);color:var(--text2)">ENABLE INGOT</button>
+          <button onclick="toggleIngot()" style="${toggleBtnStyle} var(--text2);color:var(--text2)">ENABLE INGOT</button>
+        </div>
+      </div>`;
+  }
+
+  // ── Dewdrop card ─────────────────────────────────────────────
+  const dewdropRelevant = (r.matieres["Tholin Aggregates"]?.manque || 0) > 0;
+  if (window.dewdropEnabled && !dewdropMats) window.dewdropEnabled = false;
+
+  if (window.dewdropEnabled && dewdropMats) {
+    const dLines = dewdropMats.map(m => {
+      const perTrip = Math.floor(soute / m.volume);
+      const trips   = perTrip > 0 ? Math.ceil(m.toMine / perTrip) : '∞';
+      return { ...m, perTrip, trips };
+    });
+    const dMax    = Math.max(...dLines.map(l => typeof l.trips === 'number' ? l.trips : 0));
+    const dDetail = dLines.map(l =>
+      `${esc(l.name)} : ${l.toMine.toLocaleString()} to mine (${l.perTrip.toLocaleString()}/trip → ${l.trips} trip${l.trips>1?'s':''})`
+    ).join('<br>');
+    tripsHtml += `
+      <div class="trip-card" style="border-left-color:${DEWDROP_COL}">
+        <div class="trip-asteroid" style="color:${DEWDROP_COL}">DEWDROP</div>
+        <div class="trip-resource">${dLines.map(l => esc(l.name)).join(', ')}</div>
+        <div class="trip-count">${dMax}</div>
+        <div class="trip-label">${dMax>1 ? t('construction.trips') : t('construction.trip')} ${t('construction.of_mining')}</div>
+        <div class="trip-detail">${dDetail}</div>
+        <div style="margin-top:8px">
+          <button onclick="toggleDewdrop()" style="${toggleBtnStyle} var(--border);color:var(--text3)">DISABLE DEWDROP</button>
+        </div>
+      </div>`;
+  } else if (dewdropRelevant) {
+    tripsHtml += `
+      <div class="trip-card" style="border-left-color:var(--border)">
+        <div class="trip-asteroid" style="color:var(--text3)">DEWDROP</div>
+        <div class="trip-resource" style="color:var(--text3)">Methane Ice Shards — optional</div>
+        <div class="trip-count" style="color:var(--text3)">—</div>
+        <div class="trip-label" style="color:var(--text3)">disabled</div>
+        <div style="margin-top:8px">
+          <button onclick="toggleDewdrop()" style="${toggleBtnStyle} var(--text2);color:var(--text2)">ENABLE DEWDROP</button>
         </div>
       </div>`;
   }

@@ -58,7 +58,7 @@ const RECIPES = {
       { name: "Reinforced Alloys",        qty:    4 },
       { name: "Troilite Sulfide Grains",  qty: 1080 },
       { name: "Hydrocarbon Residue",      qty:   43 },
-      { name: "Palladium",                qty:  630 },
+      { name: "Palladium",                qty:  250 },
     ]
   },
 
@@ -158,7 +158,7 @@ const RECIPES = {
     name: "Carbon Weave", batch: 14, machine: "Mini Printer",
     isSelfCraft: true,
     inputs: [
-      { name: "Tholin Aggregates", qty: 3150 },
+      { name: "Tholin Aggregates", qty: 2800 },
     ]
   },
   thermal_composites: {
@@ -166,8 +166,8 @@ const RECIPES = {
     isSelfCraft: true,
     inputs: [
       { name: "Silicon Dust",            qty:  630 },
-      { name: "Tholin Aggregates",       qty: 1260 },
-      { name: "Feldspar Crystal Shards", qty:  210 },
+      { name: "Tholin Aggregates",       qty: 1100 },
+      { name: "Feldspar Crystal Shards", qty:  190 },
     ]
   },
 };
@@ -190,15 +190,15 @@ const COMPOSANTS_BY_MACHINE = {
     "Carbon Weave": {
       batch: 14,
       inputs: [
-        { name: "Tholin Aggregates", qty: 3150 },
+        { name: "Tholin Aggregates", qty: 2800 },
       ]
     },
     "Thermal Composites": {
       batch: 14,
       inputs: [
         { name: "Silicon Dust",            qty:  630 },
-        { name: "Tholin Aggregates",       qty: 1260 },
-        { name: "Feldspar Crystal Shards", qty:  210 },
+        { name: "Tholin Aggregates",       qty: 1100 },
+        { name: "Feldspar Crystal Shards", qty:  190 },
       ]
     },
   },
@@ -306,7 +306,15 @@ const MATRICES = {
   "Iridosmine Nodules": {
     batch: 40, asteroid: "Ingot", volume: 1,
     outputs: [
-      { name: "Iron-Rich Nodules", qty: 40 },
+      { name: "Iron-Rich Nodules", qty: 54 },
+    ]
+  },
+  "Methane Ice Shards": {
+    batch: 100, asteroid: "Dewdrop", volume: 1,
+    outputs: [
+      { name: "Chitinous Organics", qty:   1 },
+      { name: "Tholin Aggregates",  qty: 500 },
+      { name: "Water Ice",          qty: 349 },
     ]
   },
   "Aromatic Carbon Veins": {
@@ -328,6 +336,8 @@ function _computeIntermediaires(result, stock) {
   for (const [matName, matData] of Object.entries(t0mats)) {
     if (matData.manque <= 0) continue;
     for (const [interName, interRec] of Object.entries(INTERMEDIAIRES)) {
+      // Dewdrop handles Tholin Aggregates directly — skip HC Residue as TA source when enabled
+      if (window.dewdropEnabled && interName === 'Hydrocarbon Residue' && matName === 'Tholin Aggregates') continue;
       const out = interRec.outputs.find(o => o.name === matName);
       if (!out) continue;
       const b = Math.ceil(matData.manque / out.qty);
@@ -336,7 +346,10 @@ function _computeIntermediaires(result, stock) {
         const toUse    = b * interRec.batch;
         const inStock  = stock[interName] || 0;
         const manque   = Math.max(0, toUse - inStock);
-        const produces = interRec.outputs.map(o => ({ name: o.name, qty: o.qty * b }));
+        // When Dewdrop enabled, exclude TA from HC Residue produces so it doesn't block Dewdrop
+        const produces = interRec.outputs
+          .filter(o => !(window.dewdropEnabled && o.name === 'Tholin Aggregates'))
+          .map(o => ({ name: o.name, qty: o.qty * b }));
         result.intermediaires[interName] = { toUse, inStock, manque, batches: b, produces, rec: interRec };
       }
     }
@@ -379,7 +392,10 @@ function _computeAllMatrices(result, stock) {
   }
 
   // ── Trier : sources uniques d'abord ─────────────────────────────
-  const enabledMatrices = Object.values(MATRICES).filter(m => m.asteroid !== 'Ingot' || window.ingotEnabled);
+  const enabledMatrices = Object.values(MATRICES).filter(m =>
+    (m.asteroid !== 'Ingot'    || window.ingotEnabled) &&
+    (m.asteroid !== 'Dewdrop'  || window.dewdropEnabled)
+  );
   const order = Object.keys(remaining).sort((a, b) => {
     const optA = enabledMatrices.filter(m => m.outputs.some(o => o.name === a)).length;
     const optB = enabledMatrices.filter(m => m.outputs.some(o => o.name === b)).length;
@@ -393,7 +409,8 @@ function _computeAllMatrices(result, stock) {
 
     let best = null;
     for (const [mxName, mxRec] of Object.entries(MATRICES)) {
-      if (mxRec.asteroid === 'Ingot' && !window.ingotEnabled) continue;
+      if (mxRec.asteroid === 'Ingot'   && !window.ingotEnabled)   continue;
+      if (mxRec.asteroid === 'Dewdrop' && !window.dewdropEnabled) continue;
       const out = mxRec.outputs.find(o => o.name === matName);
       if (!out) continue;
       const batches = Math.ceil(needed / out.qty);
